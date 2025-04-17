@@ -3,6 +3,5 @@ version: '1.0-SNAPSHOT'
 main: com.gmail.bobason01.mmoitemsequipexpansion.MMOItemsEquipExpansion
 api-version: '1.21'
 authors: [crston]
-description: You can check the stats of each mmoitem part with PAPI
-depend: [MMOItems]
-softdepend: [PlaceholderAPI]
+description: You can check the stats of each MMOItems Equipment with PAPI
+depend: [MMOItems, PlaceholderAPI]
