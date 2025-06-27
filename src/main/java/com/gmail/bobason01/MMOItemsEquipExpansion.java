@@ -1,4 +1,4 @@
-package com.gmail.bobason01.mmoitemsequipexpansion;
+package com.gmail.bobason01;
 
 import org.bukkit.plugin.java.JavaPlugin;
 

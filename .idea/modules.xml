@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/mmoitemsequipexpansion.iml" filepath="$PROJECT_DIR$/mmoitemsequipexpansion.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/MMOItemsEquipExpansion.iml" filepath="$PROJECT_DIR$/.idea/MMOItemsEquipExpansion.iml" />
     </modules>
   </component>
 </project>

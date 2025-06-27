@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="MMOItemsEquipExpansion:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/MMOItemsEquipExpansion_jar</output-path>
+    <root id="archive" name="MMOItemsEquipExpansion.jar">
+      <element id="module-output" name="MMOItemsEquipExpansion" />
+    </root>
+  </artifact>
+</component>

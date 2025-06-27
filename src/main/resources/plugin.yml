@@ -1,7 +1,7 @@
 name: MMOItemsEquipExpansion
-version: '1.0-SNAPSHOT'
-main: com.gmail.bobason01.mmoitemsequipexpansion.MMOItemsEquipExpansion
-api-version: '1.21'
-authors: [crston]
+version: 2.0
+main: com.gmail.bobason01.MMOItemsEquipExpansion
+api-version: 1.21
+author: crston
 description: You can check the stats of each MMOItems Equipment with PAPI
 depend: [MMOItems, PlaceholderAPI]
