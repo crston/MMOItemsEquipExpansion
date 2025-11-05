@@ -1,85 +1,141 @@
 package com.gmail.bobason01;
 
 import io.lumine.mythic.lib.api.item.NBTItem;
-import net.Indyuce.inventory.MMOInventory;
-import net.Indyuce.inventory.inventory.CustomInventory;
-import net.Indyuce.inventory.inventory.Inventory;
-import net.Indyuce.inventory.inventory.slot.CustomSlot;
-import net.Indyuce.inventory.player.CustomInventoryData;
-import net.Indyuce.inventory.player.PlayerData;
-import net.Indyuce.mmoitems.MMOItems;
-import net.Indyuce.mmoitems.api.item.mmoitem.MMOItem;
-import net.Indyuce.mmoitems.stat.type.ItemStat;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerItemDamageEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
-public class MMOItemsPlaceholder extends PlaceholderExpansion {
+public class MMOItemsPlaceholder extends PlaceholderExpansion implements Listener {
 
-    private static final String ZERO = "0.0";
-    private final Map<String, ItemStat<?, ?>> itemStatsCache = new HashMap<>();
+    private static final String ZERO = "0";
+    private final JavaPlugin plugin;
+    private final NamespacedKey currentKey;
+    private final NamespacedKey maxKey;
 
-    public MMOItemsPlaceholder(MMOItemsEquipExpansion plugin) {}
+    public MMOItemsPlaceholder(JavaPlugin plugin) {
+        this.plugin = plugin;
+        this.currentKey = new NamespacedKey(plugin, "current_durability");
+        this.maxKey = new NamespacedKey(plugin, "max_durability");
+        plugin.getServer().getPluginManager().registerEvents(this, plugin);
+    }
 
     @Override
-    public @NotNull String getIdentifier() { return "mmoitemsequip"; }
+    public @NotNull String getIdentifier() { return "durability"; }
 
     @Override
     public @NotNull String getAuthor() { return "crston"; }
 
     @Override
-    public @NotNull String getVersion() { return "2.0"; }
+    public @NotNull String getVersion() { return "1.0"; }
 
     @Override
     public boolean persist() { return true; }
 
-    @Override
-    public boolean register() {
-        if (super.register()) {
-            cacheItemStats();
-            return true;
+    // ====================================================================
+    // 🧠 이벤트 리스너: 아이템 손상 시 현재 durability 갱신
+    // ====================================================================
+    @EventHandler
+    public void onItemDamage(PlayerItemDamageEvent event) {
+        ItemStack item = event.getItem();
+        if (item == null || item.getType().isAir()) return;
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return;
+
+        PersistentDataContainer data = meta.getPersistentDataContainer();
+
+        // 1️⃣ MMOITEMS 최대 내구도 확인
+        NBTItem nbt = NBTItem.get(item);
+        double max = nbt.hasTag("MMOITEMS_MAX_ITEM_DAMAGE")
+                ? nbt.getDouble("MMOITEMS_MAX_ITEM_DAMAGE")
+                : item.getType().getMaxDurability();
+
+        data.set(maxKey, PersistentDataType.DOUBLE, max);
+
+        // 2️⃣ 현재 내구도 추정
+        double current;
+        if (nbt.hasTag("MMOITEMS_DURABILITY")) {
+            current = nbt.getDouble("MMOITEMS_DURABILITY");
+        } else if (meta instanceof Damageable damageable) {
+            current = Math.max(0, max - damageable.getDamage());
+        } else {
+            current = max;
         }
-        return false;
+
+        // 3️⃣ 손상된 만큼 감소
+        current = Math.max(0, current - event.getDamage());
+        data.set(currentKey, PersistentDataType.DOUBLE, current);
+
+        item.setItemMeta(meta);
     }
 
-    private void cacheItemStats() {
-        for (ItemStat<?, ?> stat : MMOItems.plugin.getStats().getAll()) {
-            itemStatsCache.put(stat.getId().toUpperCase(Locale.ROOT), stat);
+    // ====================================================================
+    // ⚙️ PDC 및 NBT에서 내구도 읽기
+    // ====================================================================
+    private String getDurability(ItemStack item, String mode) {
+        if (item == null || item.getType().isAir()) return ZERO;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return ZERO;
+
+        PersistentDataContainer data = meta.getPersistentDataContainer();
+
+        double max = 0;
+        double current = -1;
+
+        // PDC에 저장된 값이 있으면 우선 사용
+        if (data.has(maxKey, PersistentDataType.DOUBLE))
+            max = data.get(maxKey, PersistentDataType.DOUBLE);
+        if (data.has(currentKey, PersistentDataType.DOUBLE))
+            current = data.get(currentKey, PersistentDataType.DOUBLE);
+
+        // 없으면 NBT 기반 fallback
+        if (max <= 0) {
+            NBTItem nbt = NBTItem.get(item);
+            if (nbt.hasTag("MMOITEMS_MAX_ITEM_DAMAGE"))
+                max = nbt.getDouble("MMOITEMS_MAX_ITEM_DAMAGE");
+            else
+                max = item.getType().getMaxDurability();
+        }
+        if (current < 0) {
+            if (meta instanceof Damageable damageable)
+                current = Math.max(0, max - damageable.getDamage());
+            else
+                current = max;
+        }
+
+        if (max <= 0) return ZERO;
+
+        // 비율 계산
+        switch (mode) {
+            case "durability":
+                return String.valueOf((int) current);
+            case "max":
+                return String.valueOf((int) max);
+            case "damage":
+                return String.valueOf((int) (max - current));
+            case "percent":
+                return String.format(Locale.US, "%.1f", (current / max) * 100.0);
+            default:
+                return ZERO;
         }
     }
 
-    private String extractStatFromItem(ItemStack itemStack, String statName) {
-        if (itemStack == null || itemStack.getType().isAir()) return ZERO;
-
-        final NBTItem nbt = NBTItem.get(itemStack);
-        if (!nbt.hasType()) return ZERO;
-
-        final String itemId = nbt.getString("MMOITEMS_ITEM_ID");
-        if (itemId == null || itemId.isEmpty()) return ZERO;
-
-        final var type = MMOItems.plugin.getTypes().get(nbt.getType());
-        if (type == null) return ZERO;
-
-        final MMOItem mmoItem = MMOItems.plugin.getMMOItem(type, itemId);
-        if (mmoItem == null) return ZERO;
-
-        final String key = statName.toUpperCase(Locale.ROOT);
-        final ItemStat<?, ?> stat = itemStatsCache.get(key);
-        if (stat == null || !mmoItem.hasData(stat)) return ZERO;
-
-        final Object statData = mmoItem.getData(stat);
-        return statData != null ? statData.toString() : ZERO;
-    }
-
-    private ItemStack getItem(Player player, EquipmentSlot slot) {
+    private static ItemStack getItem(Player player, EquipmentSlot slot) {
         return switch (slot) {
             case HEAD -> player.getInventory().getHelmet();
             case CHEST -> player.getInventory().getChestplate();
@@ -91,55 +147,36 @@ public class MMOItemsPlaceholder extends PlaceholderExpansion {
         };
     }
 
-    private String getBasicSlotStat(Player player, EquipmentSlot slot, String statName) {
-        return extractStatFromItem(getItem(player, slot), statName);
-    }
-
-    private String getCustomSlotStat(Player player, String inventoryId, String slotIndexStr, String statName) {
-        try {
-            final int index = Integer.parseInt(slotIndexStr);
-            final PlayerData data = MMOInventory.plugin.getDataManager().get(player);
-            final CustomInventory custom = MMOInventory.plugin.getInventoryManager().getCustom(inventoryId);
-            if (custom == null) return ZERO;
-
-            final CustomInventoryData customData = data.getCustom(custom);
-            if (customData == null) return ZERO;
-
-            final Inventory inventory = customData.getInventory();
-            final CustomSlot slot = inventory.getSlot(index);
-            if (slot == null) return ZERO;
-
-            return extractStatFromItem(customData.getItem(slot), statName);
-        } catch (Exception ignored) {
-            return ZERO;
-        }
-    }
-
     @Override
     public @Nullable String onRequest(OfflinePlayer offlinePlayer, @NotNull String params) {
         if (!offlinePlayer.isOnline()) return null;
-
-        final Player player = offlinePlayer.getPlayer();
+        Player player = offlinePlayer.getPlayer();
         if (player == null) return null;
 
-        // 기본 슬롯
-        if (params.startsWith("head_")) return getBasicSlotStat(player, EquipmentSlot.HEAD, params.substring(5));
-        if (params.startsWith("chest_")) return getBasicSlotStat(player, EquipmentSlot.CHEST, params.substring(6));
-        if (params.startsWith("legs_")) return getBasicSlotStat(player, EquipmentSlot.LEGS, params.substring(5));
-        if (params.startsWith("feet_")) return getBasicSlotStat(player, EquipmentSlot.FEET, params.substring(5));
-        if (params.startsWith("hand_")) return getBasicSlotStat(player, EquipmentSlot.HAND, params.substring(5));
-        if (params.startsWith("offhand_")) return getBasicSlotStat(player, EquipmentSlot.OFF_HAND, params.substring(8));
+        String lower = params.toLowerCase(Locale.ROOT);
+        EquipmentSlot slot = null;
+        String mode = "durability";
 
-        // 커스텀 슬롯
-        final int colon = params.indexOf(':');
-        final int underscore = params.indexOf('_');
-        if (colon > 0 && underscore > colon) {
-            String inventoryId = params.substring(0, colon);
-            String slotIndex = params.substring(colon + 1, underscore);
-            String stat = params.substring(underscore + 1);
-            return getCustomSlotStat(player, inventoryId, slotIndex, stat);
+        if (lower.contains("_max_durability")) mode = "max";
+        else if (lower.contains("_damage")) mode = "damage";
+        else if (lower.contains("_percent")) mode = "percent";
+
+        String prefix = lower
+                .replace("_max_durability", "")
+                .replace("_durability", "")
+                .replace("_damage", "")
+                .replace("_percent", "");
+
+        switch (prefix) {
+            case "head" -> slot = EquipmentSlot.HEAD;
+            case "chest" -> slot = EquipmentSlot.CHEST;
+            case "legs" -> slot = EquipmentSlot.LEGS;
+            case "feet" -> slot = EquipmentSlot.FEET;
+            case "hand" -> slot = EquipmentSlot.HAND;
+            case "offhand" -> slot = EquipmentSlot.OFF_HAND;
         }
 
-        return "Invalid Placeholder";
+        if (slot == null) return "Invalid Slot";
+        return getDurability(getItem(player, slot), mode);
     }
 }
