@@ -6,7 +6,7 @@
 
     <groupId>com.gmail.bobason01</groupId>
     <artifactId>MMOItemsEquipExpansion</artifactId>
-    <version>1.0</version>
+    <version>5.0</version>
     <packaging>jar</packaging>
 
     <name>mmoitemsequipexpansion</name>

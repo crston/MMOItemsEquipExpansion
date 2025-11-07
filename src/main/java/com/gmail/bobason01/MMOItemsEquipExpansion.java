@@ -3,24 +3,30 @@ package com.gmail.bobason01;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class MMOItemsEquipExpansion extends JavaPlugin {
-
-    // 플러그인 활성화 시 실행
+public final class MMOItemsEquipExpansion extends JavaPlugin {
     @Override
     public void onEnable() {
         if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
-            getLogger().severe("PlaceholderAPI is not installed! Disabling plugin.");
+            getLogger().severe("PlaceholderAPI missing");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-
+        if (!Bukkit.getPluginManager().isPluginEnabled("MythicLib")) {
+            getLogger().severe("MythicLib missing");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
         if (!Bukkit.getPluginManager().isPluginEnabled("MMOItems")) {
-            getLogger().severe("MMOItems is not installed! Disabling plugin.");
+            getLogger().severe("MMOItems missing");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
-
-        // MMOItemsPlaceholder 인스턴스를 생성하고 등록합니다.
-        new MMOItemsPlaceholder(this).register();
+        if (!Bukkit.getPluginManager().isPluginEnabled("MMOInventory")) {
+            getLogger().severe("MMOInventory missing");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+        new MMOItemsPlaceholder().register();
+        getLogger().info("MMOItemsEquip registered");
     }
 }
